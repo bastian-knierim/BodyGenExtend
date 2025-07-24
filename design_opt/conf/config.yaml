@@ -1,6 +1,6 @@
 group: evolving  # Experiment id
-project: BodyGen
-enable_wandb: false
+project: BodyGenPusher
+enable_wandb: true
 
 cfg: null
 render: false
@@ -30,7 +30,7 @@ value_weightdecay: 0.0
 reward_shift: 0.0
 clip_epsilon: 0.2
 min_batch_size: 50000
-max_epoch_num: 1000
+max_epoch_num: 180
 mini_batch_size: 2048
 num_optim_epoch: 10
 norm_return : true

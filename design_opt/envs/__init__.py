@@ -3,6 +3,7 @@ from .swimmer import SwimmerEnv
 from .ant import AntEnv
 from .gap import GapEnv
 from .walker import WalkerEnv
+from .pusher import PusherEnv
 
 
 env_dict = {
@@ -10,5 +11,6 @@ env_dict = {
     'swimmer': SwimmerEnv,
     'ant': AntEnv,
     'gap': GapEnv,
-    'walker': WalkerEnv
+    'walker': WalkerEnv,
+    'pusher': PusherEnv
 }
