@@ -5,13 +5,14 @@ agent_specs:
 gamma: 0.995
 tau: 0.95
 policy_specs:
-  control_log_std: -0.5
+  control_log_std: 0
 
 robot_param_scale: 1
 skel_transform_nsteps: 5
 
 done_condition:
   max_ang: 60
+  goal_radius: 0.1
 
 obs_specs:
   attr: ['depth']
@@ -20,18 +21,18 @@ obs_specs:
   clip_qvel: true
   use_projected_params: true
   use_body_ind: true
-max_body_depth: 2
+  add_bodys: 1
+max_body_depth: 4
 
 add_body_condition:
-  max_nchild: 2
+  max_nchild: 1
 
 robot:
   param_mapping: sin
-  no_root_offset: true
   
   body_params:
     offset:
-      type: 'xy'
+      type: 'xz'
       lb: [-0.5, -0.5]
       ub: [0.5, 0.5]
 
@@ -40,14 +41,14 @@ robot:
   geom_params:
     size:
       lb: 0.03
-      ub: 0.10
+      ub: 0.08
     ext_start:
       lb: 0.0
-      ub: 0.2
+      ub: 0.5
 
   actuator_params:
     gear:
       lb: 20
       ub: 400
-  
 
+  

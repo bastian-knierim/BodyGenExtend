@@ -1,5 +1,5 @@
 group: evolving  # Experiment id
-project: BodyGenPusher
+project: BodyGenExtend
 enable_wandb: true
 
 cfg: null

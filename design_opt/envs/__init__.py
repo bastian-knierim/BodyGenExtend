@@ -3,7 +3,7 @@ from .swimmer import SwimmerEnv
 from .ant import AntEnv
 from .gap import GapEnv
 from .walker import WalkerEnv
-from .pusher import PusherEnv
+from .pusher_old import PusherEnv
 
 
 env_dict = {
