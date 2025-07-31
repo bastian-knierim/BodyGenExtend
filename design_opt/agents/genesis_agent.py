@@ -1,6 +1,8 @@
 import math
 import pickle
 import time
+import imageio
+from mujoco_py import GlfwContext
 from khrylib.utils import *
 from khrylib.utils.torch import *
 from khrylib.rl.agents import AgentPPO
@@ -361,8 +363,8 @@ class BodyGenAgent(AgentPPO):
                 fixed_log_probs = torch.cat(fixed_log_probs)
         num_state = len(states)
         
-        state_types = torch.tensor([item[2] for item in states], dtype=int) # [0, 1, 2] for ['skel_trans', 'attr_trans', 'execution']
-        next_state_types = torch.tensor([item[2] for item in next_states], dtype=int)
+        state_types = torch.tensor(np.array([item[2] for item in states], dtype=int)) # [0, 1, 2] for ['skel_trans', 'attr_trans', 'execution']
+        next_state_types = torch.tensor(np.array([item[2] for item in next_states], dtype=int))
         
         advantages, returns = self.estimate_advantages(states, next_states, rewards, next_terminations, next_dones, state_types, next_state_types)
 
@@ -505,7 +507,7 @@ class BodyGenAgent(AgentPPO):
         tb_logger.add_scalar('exec_R_eps_avg', log_eval.avg_exec_episode_reward, epoch)
         tb_logger.add_scalar('reward_shift', self.cfg.reward_shift, epoch)
         
-        if self.cfg.enable_wandb:
+        if self.cfg.enable_wandb:                                               # TODO in case I need different logs
             wandb.log({
                 'train_R_avg': log.avg_reward,
                 'policy_learning_rate': self.optimizer_policy.param_groups[0]["lr"],
@@ -531,7 +533,7 @@ class BodyGenAgent(AgentPPO):
 
             env._get_viewer('human')._paused = paused
             env.render()
-            for t in range(10000):
+            for t in range(1000):
                 state_var = tensorfy([state])
                 
                 ## do obs norm (none-updated)
@@ -557,6 +559,7 @@ class BodyGenAgent(AgentPPO):
                         break
 
                 if done:
+                    print(f'truncation: {truncation}, termination: {termination}')
                     break
                 state = next_state
 
@@ -565,4 +568,51 @@ class BodyGenAgent(AgentPPO):
 
         if save_video:
             save_video_ffmpeg(f'{frame_dir}/%04d.png', f'out/videos/{self.cfg.id}.mp4', fps=30)
+            shutil.rmtree(frame_dir)
+
+    def visualize_agent_video(self, num_episode=1, mean_action=True, max_num_frames=1000):
+
+        fr = 0
+        env = self.env
+
+        if self.cfg.uni_obs_norm:
+            self.obs_norm.eval()
+            self.obs_norm.to('cpu')
+
+        frame_dir = f'out/videos/{self.cfg.id}_frames'
+        os.makedirs(frame_dir, exist_ok=True)
+
+        for _ in range(num_episode):
+            state = env.reset()
+
+            for t in range(10000):
+                state_var = tensorfy([state])
+
+                if self.cfg.uni_obs_norm:
+                    state_var = self.normalize_observation(state_var)
+
+                with torch.no_grad():
+                    action = self.policy_net.select_action(state_var, mean_action).numpy().astype(np.float64)
+
+                next_state, env_reward, termination, truncation, info = env.step(action)
+                done = (termination or truncation)
+
+                frame = env.render(mode='rgb_array')
+                imageio.imwrite(f'{frame_dir}/{fr:04d}.png', frame)
+                fr += 1
+                if fr >= max_num_frames:
+                    break
+
+                if done:
+                    print(f'truncation: {truncation}, termination: {termination}')
+                    break
+
+                state = next_state
+
+            if save_video and fr >= max_num_frames:
+                break
+
+        if save_video:
+            output_file = f'out/videos/{self.cfg.id}.mp4'
+            save_video_ffmpeg(f'{frame_dir}/%04d.png', output_file, fps=30)
             shutil.rmtree(frame_dir)

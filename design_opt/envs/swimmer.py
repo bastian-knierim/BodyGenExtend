@@ -326,7 +326,7 @@ class SwimmerEnv(MujocoEnv, utils.EzPickle):
         return self._get_obs()
 
     def viewer_setup(self):
-        self.viewer.cam.distance = 20
+        self.viewer.cam.distance = 5
         self.viewer.cam.lookat[2] = 1.15
         self.viewer.cam.lookat[0] = self.data.qpos[0] 
         self.viewer.cam.elevation = -10

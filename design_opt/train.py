@@ -23,6 +23,8 @@ def main_loop(FLAGS):
     device = torch.device('cuda', index=FLAGS.gpu_index) if torch.cuda.is_available() else torch.device('cpu')
     if torch.cuda.is_available():
         torch.cuda.set_device(FLAGS.gpu_index)
+    print(f"Device in Use: {device}")
+
     np.random.seed(cfg.seed)
     torch.manual_seed(cfg.seed)
 

@@ -20,7 +20,7 @@ obs_specs:
   clip_qvel: true
   use_projected_params: true
   use_body_ind: true
-max_body_depth: 2
+max_body_depth: 4
 
 add_body_condition:
   max_nchild: 2

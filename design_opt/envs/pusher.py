@@ -17,7 +17,7 @@ class PusherEnv(MujocoEnv, utils.EzPickle):
         self.env_specs = cfg.env_specs
         self.agent = agent
         if self.cfg.xml_name == "default":
-            self.model_xml_file = os.path.join(cfg.project_path, "assets", "mujoco_envs", "ant_box.xml")
+            self.model_xml_file = os.path.join(cfg.project_path, "assets", "mujoco_envs", "antbox.xml")
         else:
             self.model_xml_file = os.path.join(cfg.project_path, "assets", "mujoco_envs", f"{self.cfg.xml_name}.xml")
         # robot xml
@@ -43,6 +43,9 @@ class PusherEnv(MujocoEnv, utils.EzPickle):
         self.attr_specs = set(cfg.obs_specs.get('attr', []))
         MujocoEnv.__init__(self, self.model_xml_file, 4)
         utils.EzPickle.__init__(self)
+        self.box_joint_id = self.model.joint_name2id("box_joint")
+        self.box_qpos_adr = self.model.jnt_qposadr[self.model.joint_name2id("box_joint")]
+        self.box_pos = [10.0, 0.0, 0.5]
         self.control_action_dim = 1
         self.skel_num_action = 3 if cfg.enable_remove else 2
         self.sim_obs_dim = self.get_sim_obs().shape[-1]
@@ -112,7 +115,6 @@ class PusherEnv(MujocoEnv, utils.EzPickle):
     def step(self, a):
         if not self.is_inited:
             return self._get_obs(), 0, False, False, {'use_transform_action': False, 'stage': 'execution'}
-
         self.cur_t += 1
         # skeleton transform stage
         if self.stage == 'skeleton_transform':
@@ -155,19 +157,25 @@ class PusherEnv(MujocoEnv, utils.EzPickle):
             control_a = a[:, :self.control_action_dim]
             ctrl = self.action_to_control(control_a)
             ctrl_cost_coeff = self.cfg.reward_specs.get('ctrl_cost_coeff', 1e-4)
-            xposbefore = self.get_body_com("0")[0]
-
+            robposbefore = self.get_body_com("0")[0:3]
+            boxposbefore = self.get_body_com("box")[0:3]
+            distbefore = np.linalg.norm(boxposbefore - robposbefore)
             try:
                 self.do_simulation(ctrl, self.frame_skip)
             except:
                 print(self.cur_xml_str)
                 return self._get_obs(), 0, True, False, {'use_transform_action': False, 'stage': 'execution'}
 
-            xposafter = self.get_body_com("0")[0]
-            reward_fwd = (xposafter - xposbefore) / self.dt
+            robposafter = self.get_body_com("0")[0:3]
+            boxposafter = self.get_body_com("box")[0:3]
+            distafter = np.linalg.norm(boxposafter - robposafter)
+
+            reward_dst = (distbefore - distafter) / self.dt
+            #reward_fwd = (xposafter - xposbefore) / self.dt
+            reward_bx_fwd = (boxposafter[0] - boxposbefore[0]) / self.dt
             reward_ctrl = - ctrl_cost_coeff * np.square(ctrl).mean()
             alive_bonus = self.cfg.reward_specs.get('alive_bonus', 0.0)
-            reward = reward_fwd + reward_ctrl + alive_bonus
+            reward = reward_ctrl + alive_bonus + reward_dst + reward_bx_fwd # + reward_fwd
             scale = self.cfg.reward_specs.get('exec_reward_scale', 1.0)
             reward *= scale
 
@@ -181,6 +189,16 @@ class PusherEnv(MujocoEnv, utils.EzPickle):
             max_ang = done_condition.get('max_ang', 3600)
             max_nsteps = done_condition.get('max_nsteps', 1000)
             termination = not (np.isfinite(s).all() and (height > min_height) and (height < max_height) and (abs(ang) < np.deg2rad(max_ang)))
+            # if termination:
+            #     print(f'termination cause:')
+            #     if not (np.isfinite(s).all()):
+            #         print('s is not finite: {s}')
+            #     elif not (height > min_height):
+            #         print(f'height {height} < min_height {min_height}')
+            #     elif not (height < max_height):
+            #         print(f'height {height} > max_height {max_height}')
+            #     elif not (abs(ang) < np.deg2rad(max_ang)):
+            #         print(f'ang {abs(ang)} > max_ang {np.deg2rad(max_ang)}')
             truncation = not (self.control_nsteps < max_nsteps)
             ob = self._get_obs()
             return ob, reward, termination, truncation, {'use_transform_action': False, 'stage': 'execution'}
@@ -215,17 +233,27 @@ class PusherEnv(MujocoEnv, utils.EzPickle):
                 obs_i = [self.data.qpos[2:7], qvel[:6], np.zeros(2)]
             else:
                 qs, qe = get_single_body_qposaddr(self.model, body.name)
-                if qe - qs >= 1:
-                    assert qe - qs == 1
-                    obs_i = [np.zeros(11), self.data.qpos[qs:qe], qvel[qs-1:qe-1]]
-                    # print(qs)
+                if i == 1:
+                    if qe - qs >= 1:            # hiding information in zero elements
+                        assert qe - qs == 1
+                        obs_i = [self.data.qpos[-7:-2], qvel[-6:], self.data.qpos[qs:qe], qvel[qs-1:qe-1]]
+                        # print(qs)
+                    else:
+                        obs_i = [self.data.qpos[-7:-2], np.zeros(2)]
                 else:
-                    obs_i = [np.zeros(13)]
+                    if qe - qs >= 1:
+                        assert qe - qs == 1
+                        obs_i = [np.zeros(11), self.data.qpos[qs:qe], qvel[qs-1:qe-1]]
+                        # print(qs)
+                    else:
+                        obs_i = [np.zeros(13)]
             if 'root_offset' in self.sim_specs:
                 offset = self.data.body_xpos[self.model._body_name2id[body.name]][[0, 2]] - root_pos[[0, 2]]
                 obs_i.append(offset)
             obs_i = np.concatenate(obs_i)
             obs.append(obs_i)
+        # TODO make if for further bodys
+        # obs.append(np.concatenate([self.data.qpos[-7:], qvel[-6:]]))
         obs = np.stack(obs)
         return obs
 
@@ -298,6 +326,9 @@ class PusherEnv(MujocoEnv, utils.EzPickle):
         use_transform_action = np.array([self.if_use_transform_action()])
         num_nodes = np.array([sim_obs.shape[0]])
         all_obs = [obs, edges, use_transform_action, num_nodes]
+        # TODO work it in cfg
+        # box_pos = self.data.qpos[self.model.jnt_qposadr[self.model.joint_name2id("box_joint")]] # TODO semioptimal comp costly
+        # all_obs.append(box_pos) self.env.get_body_com("box")[0:3] self.env.get_body_com("0")[0:3]
         if self.use_body_ind:
             body_index = self.get_body_index()
             all_obs.append(body_index)
@@ -311,7 +342,11 @@ class PusherEnv(MujocoEnv, utils.EzPickle):
             all_obs.append(distances)
         if self.use_position_encoding:
             lapPE = self.robot.get_laplacian_position_encoding()
-            all_obs.append(lapPE)        
+            all_obs.append(lapPE)
+        # qvel = self.data.qvel.copy()
+        # if self.clip_qvel:
+        #     qvel = np.clip(qvel, -10, 10)
+        # all_obs.append(np.concatenate([self.data.qpos[-7:], qvel[-6:]]))
         return all_obs
 
     def reset_state(self, add_noise):
@@ -323,6 +358,7 @@ class PusherEnv(MujocoEnv, utils.EzPickle):
             qvel = self.init_qvel
         if self.env_specs.get('init_height', True):
             qpos[2] = 0.4
+        qpos[-7:-4] = self.box_pos     # TODO work into cfg
         self.set_state(qpos, qvel)
 
     def reset_robot(self):
@@ -343,7 +379,7 @@ class PusherEnv(MujocoEnv, utils.EzPickle):
 
     def viewer_setup(self):
         # self.viewer.cam.trackbodyid = 2
-        self.viewer.cam.distance = 10
+        self.viewer.cam.distance = 30
         # self.viewer.cam.lookat[2] = 1.15
         self.viewer.cam.lookat[:2] = self.data.qpos[:2] 
         self.viewer.cam.elevation = -10
