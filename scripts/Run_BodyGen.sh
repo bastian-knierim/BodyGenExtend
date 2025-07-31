@@ -1,12 +1,11 @@
 N="range(1)"
 MODEL="BodyGenExtend"
-NAME="crawler"
 # EXPTS="crawler terraincrosser cheetah swimmer glider-regular glider-medium glider-hard walker-regular walker-medium walker-hard"
-EXPT="crawler"
+EXPT="pusher"
 SEED=0
 
 OMP_NUM_THREADS=1 python -m design_opt.train -m cfg=$EXPT n="$N" \
     seed=$SEED \
     hydra.sweep.dir="multirun/$MODEL-$EXPT/$(date "+%Y-%m-%d-%H-%M-%S-%N")" \
     group=$MODEL-$EXPT \
-    name=$NAME
+    name=$EXPT

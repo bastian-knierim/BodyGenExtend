@@ -53,7 +53,7 @@ def main(cfg: DictConfig) -> None:
         wandb.init(
             project=str(FLAGS.project),
             group=str(FLAGS.group),
-            name="genesis"
+            name=str(FLAGS.name)
         )
     
     main_loop(FLAGS)
