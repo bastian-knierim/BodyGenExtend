@@ -157,8 +157,8 @@ class PusherEnv(MujocoEnv, utils.EzPickle):
             control_a = a[:, :self.control_action_dim]
             ctrl = self.action_to_control(control_a)
             ctrl_cost_coeff = self.cfg.reward_specs.get('ctrl_cost_coeff', 1e-4)
-            robposbefore = self.get_body_com("0")[0:3]
-            boxposbefore = self.get_body_com("box")[0:3]
+            robposbefore = self.get_body_com("0")[0:3].copy()
+            boxposbefore = self.get_body_com("box")[0:3].copy()
             distbefore = np.linalg.norm(boxposbefore - robposbefore)
             try:
                 self.do_simulation(ctrl, self.frame_skip)
@@ -166,8 +166,8 @@ class PusherEnv(MujocoEnv, utils.EzPickle):
                 print(self.cur_xml_str)
                 return self._get_obs(), 0, True, False, {'use_transform_action': False, 'stage': 'execution'}
 
-            robposafter = self.get_body_com("0")[0:3]
-            boxposafter = self.get_body_com("box")[0:3]
+            robposafter = self.get_body_com("0")[0:3].copy()
+            boxposafter = self.get_body_com("box")[0:3].copy()
             distafter = np.linalg.norm(boxposafter - robposafter)
 
             reward_dst = (distbefore - distafter) / self.dt
