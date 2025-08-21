@@ -572,6 +572,8 @@ class BodyGenAgent(AgentPPO):
 
     def visualize_agent_video(self, num_episode=1, mean_action=True, max_num_frames=1000):
 
+        width = 1600
+        height = 900
         fr = 0
         env = self.env
 
@@ -585,7 +587,7 @@ class BodyGenAgent(AgentPPO):
         for _ in range(num_episode):
             state = env.reset()
 
-            for t in range(10000):
+            for t in range(1000):
                 state_var = tensorfy([state])
 
                 if self.cfg.uni_obs_norm:
@@ -597,7 +599,7 @@ class BodyGenAgent(AgentPPO):
                 next_state, env_reward, termination, truncation, info = env.step(action)
                 done = (termination or truncation)
 
-                frame = env.render(mode='rgb_array')
+                frame = env.render(mode='rgb_array', width=width, height=height)
                 imageio.imwrite(f'{frame_dir}/{fr:04d}.png', frame)
                 fr += 1
                 if fr >= max_num_frames:
@@ -609,10 +611,10 @@ class BodyGenAgent(AgentPPO):
 
                 state = next_state
 
-            if save_video and fr >= max_num_frames:
+            if fr >= max_num_frames:
                 break
 
-        if save_video:
-            output_file = f'out/videos/{self.cfg.id}.mp4'
-            save_video_ffmpeg(f'{frame_dir}/%04d.png', output_file, fps=30)
-            shutil.rmtree(frame_dir)
+
+        output_file = f'out/videos/{self.cfg.id}.mp4'
+        save_video_ffmpeg(f'{frame_dir}/%04d.png', output_file, fps=30)
+        shutil.rmtree(frame_dir)

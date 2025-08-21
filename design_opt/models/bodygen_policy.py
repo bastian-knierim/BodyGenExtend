@@ -120,7 +120,7 @@ class BodyGenPolicy(Policy):
         
         return padded_obs, padding_mask, padded_distances, padded_lapPE, padded_body_ind
     
-    def batch_data(self, x): # TODO integrate obj_obs
+    def batch_data(self, x):
         obs, edges, use_transform_action, num_nodes, body_ind, body_depths, body_heights, distances, lapPE= zip(*x)
         
         use_transform_action = np.concatenate(use_transform_action)
@@ -151,7 +151,7 @@ class BodyGenPolicy(Policy):
         
         return obs, edges_new, use_transform_action, num_nodes, num_nodes_cum, body_ind, body_depths, body_heights, transformer_obs
 
-    def forward(self, x): ### TODO FOllow the x
+    def forward(self, x):
         stages = ['skel_trans', 'attr_trans', 'execution']
         x_dict = defaultdict(list)
         node_design_mask = defaultdict(list)
@@ -239,7 +239,7 @@ class BodyGenPolicy(Policy):
 
         return control_dist, attr_dist, skel_dist, node_design_mask, design_mask, total_num_nodes, num_nodes_cum_control, num_nodes_cum_design, num_nodes_cum_skel, x[0][0].device
 
-    def select_action(self, x, mean_action=False): # TODO add obj_obs
+    def select_action(self, x, mean_action=False):
         
         control_dist, attr_dist, skel_dist, node_design_mask, _, total_num_nodes, _, _, _, device = self.forward(x)
         if control_dist is not None:

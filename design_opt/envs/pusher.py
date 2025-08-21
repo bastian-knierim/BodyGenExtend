@@ -1,5 +1,6 @@
 import numpy as np
 from gym import utils
+from design_opt.utils.rand import *
 from khrylib.rl.envs.common.mujoco_env_gym import MujocoEnv
 from khrylib.robot.xml_robot import Robot
 from khrylib.utils import get_single_body_qposaddr, get_graph_fc_edges
@@ -15,6 +16,7 @@ class PusherEnv(MujocoEnv, utils.EzPickle):
         self.cur_t = 0
         self.cfg = cfg
         self.env_specs = cfg.env_specs
+        self.task_specs = cfg.task_specs
         self.agent = agent
         if self.cfg.xml_name == "default":
             self.model_xml_file = os.path.join(cfg.project_path, "assets", "mujoco_envs", "antbox.xml")
@@ -41,11 +43,15 @@ class PusherEnv(MujocoEnv, utils.EzPickle):
         self.control_nsteps = 0
         self.sim_specs = set(cfg.obs_specs.get('sim', []))
         self.attr_specs = set(cfg.obs_specs.get('attr', []))
+        # task attr
+        if self.task_specs.get('mov_goal', True):
+            self.goal_pos = np.array([0.0, 0.0, 0.0])
+            self.box_goal_dist = np.array([0.0, 0.0, 0.0])
+        self.box_pos = np.array(self.task_specs.get('box_pos'))
+        self.rob_box_dist = np.array([0.0, 0.0, 0.0])
         MujocoEnv.__init__(self, self.model_xml_file, 4)
         utils.EzPickle.__init__(self)
-        self.box_joint_id = self.model.joint_name2id("box_joint")
-        self.box_qpos_adr = self.model.jnt_qposadr[self.model.joint_name2id("box_joint")]
-        self.box_pos = [10.0, 0.0, 0.5]
+        self.box_id = self.model.body_name2id("box")
         self.control_action_dim = 1
         self.skel_num_action = 3 if cfg.enable_remove else 2
         self.sim_obs_dim = self.get_sim_obs().shape[-1]
@@ -157,25 +163,37 @@ class PusherEnv(MujocoEnv, utils.EzPickle):
             control_a = a[:, :self.control_action_dim]
             ctrl = self.action_to_control(control_a)
             ctrl_cost_coeff = self.cfg.reward_specs.get('ctrl_cost_coeff', 1e-4)
-            robposbefore = self.get_body_com("0")[0:3].copy()
-            boxposbefore = self.get_body_com("box")[0:3].copy()
-            distbefore = np.linalg.norm(boxposbefore - robposbefore)
+
+            if self.task_specs.get('mov_goal', True):
+                box_goal_dist_bef = np.linalg.norm(self.box_goal_dist)
+            else:
+                box_pos_bef = self.box_pos
+
+            rob_box_dist_bef = np.linalg.norm(self.rob_box_dist)
+
             try:
                 self.do_simulation(ctrl, self.frame_skip)
             except:
                 print(self.cur_xml_str)
                 return self._get_obs(), 0, True, False, {'use_transform_action': False, 'stage': 'execution'}
 
-            robposafter = self.get_body_com("0")[0:3].copy()
-            boxposafter = self.get_body_com("box")[0:3].copy()
-            distafter = np.linalg.norm(boxposafter - robposafter)
+            self.rob_pos = self.get_body_com("0")[0:3].copy()
+            self.box_pos = self.get_body_com("box")[0:3].copy()
+            self.rob_box_dist = self.rob_pos - self.box_pos
+            rob_box_dist_aft = np.linalg.norm(self.rob_box_dist)
 
-            reward_dst = (distbefore - distafter) / self.dt
-            #reward_fwd = (xposafter - xposbefore) / self.dt
-            reward_bx_fwd = (boxposafter[0] - boxposbefore[0]) / self.dt
-            reward_ctrl = - ctrl_cost_coeff * np.square(ctrl).mean()
-            alive_bonus = self.cfg.reward_specs.get('alive_bonus', 0.0)
-            reward = reward_ctrl + alive_bonus + reward_dst + reward_bx_fwd # + reward_fwd
+            if self.task_specs.get('mov_goal', True):
+                self.box_goal_dist = self.box_pos - self.goal_pos
+                box_goal_dist_aft = np.linalg.norm(self.box_goal_dist)
+                reward = (box_goal_dist_bef - box_goal_dist_aft) /self.dt
+            else:
+                box_pos_after = self.box_pos
+                reward = (box_pos_bef - box_pos_after) /self.dt
+
+            reward += (rob_box_dist_bef - rob_box_dist_aft) / self.dt
+
+            reward -= ctrl_cost_coeff * np.square(ctrl).mean()
+            reward += self.cfg.reward_specs.get('alive_bonus', 0.0)
             scale = self.cfg.reward_specs.get('exec_reward_scale', 1.0)
             reward *= scale
 
@@ -189,16 +207,6 @@ class PusherEnv(MujocoEnv, utils.EzPickle):
             max_ang = done_condition.get('max_ang', 3600)
             max_nsteps = done_condition.get('max_nsteps', 1000)
             termination = not (np.isfinite(s).all() and (height > min_height) and (height < max_height) and (abs(ang) < np.deg2rad(max_ang)))
-            # if termination:
-            #     print(f'termination cause:')
-            #     if not (np.isfinite(s).all()):
-            #         print('s is not finite: {s}')
-            #     elif not (height > min_height):
-            #         print(f'height {height} < min_height {min_height}')
-            #     elif not (height < max_height):
-            #         print(f'height {height} > max_height {max_height}')
-            #     elif not (abs(ang) < np.deg2rad(max_ang)):
-            #         print(f'ang {abs(ang)} > max_ang {np.deg2rad(max_ang)}')
             truncation = not (self.control_nsteps < max_nsteps)
             ob = self._get_obs()
             return ob, reward, termination, truncation, {'use_transform_action': False, 'stage': 'execution'}
@@ -214,6 +222,7 @@ class PusherEnv(MujocoEnv, utils.EzPickle):
         except:
             print(self.cur_xml_str)
             return False
+        self.model.geom_rgba[self.box_id][3] = 1.0
         return True
         
 
@@ -221,40 +230,44 @@ class PusherEnv(MujocoEnv, utils.EzPickle):
         return ['skeleton_transform', 'attribute_transform', 'execution'].index(self.stage)
 
     def get_sim_obs(self):
-        obs = []
+        rob_obs = []
+        env_obs = []
         if 'root_offset' in self.sim_specs:
             root_pos = self.data.body_xpos[self.model._body_name2id[self.robot.bodies[0].name]]
-            
+        qvel = self.data.qvel.copy()
+        # robot joint/limb pos/vel observation
         for i, body in enumerate(self.robot.bodies):
-            qvel = self.data.qvel.copy()
             if self.clip_qvel:
                 qvel = np.clip(qvel, -10, 10)
             if i == 0:
-                obs_i = [self.data.qpos[2:7], qvel[:6], np.zeros(2)]
+                obs_i = [self.data.qpos[2:7], qvel[:6], np.zeros(2)] # ask sayantan why he thinks it is like that
             else:
                 qs, qe = get_single_body_qposaddr(self.model, body.name)
-                if i == 1:
-                    if qe - qs >= 1:            # hiding information in zero elements
-                        assert qe - qs == 1
-                        obs_i = [self.data.qpos[-7:-2], qvel[-6:], self.data.qpos[qs:qe], qvel[qs-1:qe-1]]
-                        # print(qs)
-                    else:
-                        obs_i = [self.data.qpos[-7:-2], np.zeros(2)]
+                if qe - qs >= 1:
+                    assert qe - qs == 1
+                    obs_i = [np.zeros(11), self.data.qpos[qs:qe], qvel[qs-1:qe-1]]
+                    # print(qs)
                 else:
-                    if qe - qs >= 1:
-                        assert qe - qs == 1
-                        obs_i = [np.zeros(11), self.data.qpos[qs:qe], qvel[qs-1:qe-1]]
-                        # print(qs)
-                    else:
-                        obs_i = [np.zeros(13)]
+                    obs_i = [np.zeros(13)]
             if 'root_offset' in self.sim_specs:
                 offset = self.data.body_xpos[self.model._body_name2id[body.name]][[0, 2]] - root_pos[[0, 2]]
                 obs_i.append(offset)
             obs_i = np.concatenate(obs_i)
-            obs.append(obs_i)
-        # TODO make if for further bodys
-        # obs.append(np.concatenate([self.data.qpos[-7:], qvel[-6:]]))
-        obs = np.stack(obs)
+            rob_obs.append(obs_i)
+        rob_obs = np.stack(rob_obs)
+
+        # pos/vel additional body observations
+        for i in range(rob_obs.shape[0]):
+            if i == 0:
+                obs_i = [self.rob_box_dist , self.data.qpos[-4:], qvel[-6:]]
+            elif i == 1 and self.task_specs.get('mov_goal', True):
+                obs_i = [self.box_goal_dist, np.zeros(10)]
+            else:
+                obs_i = [np.zeros(13)]
+            obs_i = np.concatenate(obs_i)
+            env_obs.append(obs_i)
+        env_obs = np.stack(env_obs)
+        obs = np.concatenate([rob_obs, env_obs], axis=-1)
         return obs
 
     def get_attr_fixed(self):
@@ -314,7 +327,6 @@ class PusherEnv(MujocoEnv, utils.EzPickle):
         return depths
 
     def _get_obs(self):
-        obs = []
         attr_fixed_obs = self.get_attr_fixed()
         sim_obs = self.get_sim_obs()
         design_obs = self.design_cur_params
@@ -326,9 +338,6 @@ class PusherEnv(MujocoEnv, utils.EzPickle):
         use_transform_action = np.array([self.if_use_transform_action()])
         num_nodes = np.array([sim_obs.shape[0]])
         all_obs = [obs, edges, use_transform_action, num_nodes]
-        # TODO work it in cfg
-        # box_pos = self.data.qpos[self.model.jnt_qposadr[self.model.joint_name2id("box_joint")]] # TODO semioptimal comp costly
-        # all_obs.append(box_pos) self.env.get_body_com("box")[0:3] self.env.get_body_com("0")[0:3]
         if self.use_body_ind:
             body_index = self.get_body_index()
             all_obs.append(body_index)
@@ -343,10 +352,6 @@ class PusherEnv(MujocoEnv, utils.EzPickle):
         if self.use_position_encoding:
             lapPE = self.robot.get_laplacian_position_encoding()
             all_obs.append(lapPE)
-        # qvel = self.data.qvel.copy()
-        # if self.clip_qvel:
-        #     qvel = np.clip(qvel, -10, 10)
-        # all_obs.append(np.concatenate([self.data.qpos[-7:], qvel[-6:]]))
         return all_obs
 
     def reset_state(self, add_noise):
@@ -358,7 +363,14 @@ class PusherEnv(MujocoEnv, utils.EzPickle):
             qvel = self.init_qvel
         if self.env_specs.get('init_height', True):
             qpos[2] = 0.4
-        qpos[-7:-4] = self.box_pos     # TODO work into cfg
+        if self.task_specs.get('mov_goal', False):
+            self.box_pos[:2], self.goal_pos[:2] = rand_cord_pair()
+            self.rob_box_dist = - self.box_pos
+            self.box_goal_dist = self.box_pos - self.goal_pos
+            qpos[-7:-4] = self.box_pos
+        else:
+            qpos[-7:-4] = self.box_pos
+            self.rob_box_dist = - self.box_pos
         self.set_state(qpos, qvel)
 
     def reset_robot(self):
@@ -379,7 +391,7 @@ class PusherEnv(MujocoEnv, utils.EzPickle):
 
     def viewer_setup(self):
         # self.viewer.cam.trackbodyid = 2
-        self.viewer.cam.distance = 30
+        self.viewer.cam.distance = 10
         # self.viewer.cam.lookat[2] = 1.15
         self.viewer.cam.lookat[:2] = self.data.qpos[:2] 
         self.viewer.cam.elevation = -10

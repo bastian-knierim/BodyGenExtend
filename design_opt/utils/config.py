@@ -89,6 +89,7 @@ class Config:
         self.enable_remove = cfg.get('enable_remove', True)
         self.skel_transform_nsteps = cfg.get('skel_transform_nsteps', 5)
         self.env_init_height = cfg.get('env_init_height', False)
+        self.task_specs = cfg.get('task_specs', dict())
 
         # robot config
         self.robot_param_scale = cfg.get('robot_param_scale', 0.1)

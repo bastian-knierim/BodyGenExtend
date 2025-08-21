@@ -14,8 +14,8 @@ done_condition:
   max_ang: 60
 
 task_specs:
-  mov_goal: False
-  box_pos: [10.0, 0.0, 0.5]
+  mov_goal: true
+  box_pos: [0.0, 0.0, 0.5]
 
 obs_specs:
   attr: ['depth']
