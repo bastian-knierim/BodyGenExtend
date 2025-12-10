@@ -65,7 +65,6 @@ class Config:
         self.uni_obs_norm = FLAG.get('uni_obs_norm', False)
         self.norm_return = FLAG.get('norm_return', True)
         self.reward_shift = FLAG.get('reward_shift', 0.0)
-        self.xml_name = FLAG.get('xml_name', 'default')
         self.planner_demean = FLAG.get('planner_demean', False)
         
         self.enable_wandb = FLAG.get('enable_wandb', True)
@@ -90,9 +89,14 @@ class Config:
         self.skel_transform_nsteps = cfg.get('skel_transform_nsteps', 5)
         self.env_init_height = cfg.get('env_init_height', False)
         self.task_specs = cfg.get('task_specs', dict())
+        self.xml_name = cfg.get('xml_name', 'default')
+
 
         # robot config
         self.robot_param_scale = cfg.get('robot_param_scale', 0.1)
         self.robot_cfg = cfg.get('robot', dict())
+
+        # verbose
+        self.verbose = cfg.get('verbose', False)
 
 

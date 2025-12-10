@@ -1,0 +1,246 @@
+hydra:
+  run:
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: debug/BodyGenExtend-debug-pusher-4/2025-09-05-12-47-09-635607912
+    subdir: ${hydra.job.num}
+  launcher:
+    _target_: hydra._internal.core_plugins.basic_launcher.BasicLauncher
+  sweeper:
+    _target_: hydra._internal.core_plugins.basic_sweeper.BasicSweeper
+    max_batch_size: null
+  help:
+    app_name: ${hydra.job.name}
+    header: '${hydra.help.app_name} is powered by Hydra.
+
+      '
+    footer: 'Powered by Hydra (https://hydra.cc)
+
+      Use --hydra-help to view Hydra specific help
+
+      '
+    template: '${hydra.help.header}
+
+      == Configuration groups ==
+
+      Compose your configuration from those groups (group=option)
+
+
+      $APP_CONFIG_GROUPS
+
+
+      == Config ==
+
+      Override anything in the config (foo.bar=value)
+
+
+      $CONFIG
+
+
+      ${hydra.help.footer}
+
+      '
+  hydra_help:
+    template: 'Hydra (${hydra.runtime.version})
+
+      See https://hydra.cc for more info.
+
+
+      == Flags ==
+
+      $FLAGS_HELP
+
+
+      == Configuration groups ==
+
+      Compose your configuration from those groups (For example, append hydra/job_logging=disabled
+      to command line)
+
+
+      $HYDRA_CONFIG_GROUPS
+
+
+      Use ''--cfg hydra'' to Show the Hydra config.
+
+      '
+    hydra_help: ???
+  hydra_logging:
+    version: 1
+    formatters:
+      simple:
+        format: '[%(asctime)s][HYDRA] %(message)s'
+    handlers:
+      console:
+        class: logging.StreamHandler
+        formatter: simple
+        stream: ext://sys.stdout
+    root:
+      level: INFO
+      handlers:
+      - console
+    loggers:
+      logging_example:
+        level: DEBUG
+    disable_existing_loggers: false
+  job_logging:
+    version: 1
+    formatters:
+      simple:
+        format: '[%(asctime)s][%(name)s][%(levelname)s] - %(message)s'
+    handlers:
+      console:
+        class: logging.StreamHandler
+        formatter: simple
+        stream: ext://sys.stdout
+      file:
+        class: logging.FileHandler
+        formatter: simple
+        filename: ${hydra.job.name}.log
+    root:
+      level: INFO
+      handlers:
+      - console
+      - file
+    disable_existing_loggers: false
+  env: {}
+  searchpath: []
+  callbacks: {}
+  output_subdir: .hydra
+  overrides:
+    hydra:
+    - hydra.sweep.dir=debug/BodyGenExtend-debug-pusher-4/2025-09-05-12-47-09-635607912
+    task:
+    - cfg=pusher
+    - n=range(1)
+    - seed=4
+    - group=BodyGenExtend-debug-pusher-4
+    - name=pusher
+  job:
+    name: train
+    override_dirname: cfg=pusher,group=BodyGenExtend-debug-pusher-4,n=range(1),name=pusher,seed=4
+    id: ???
+    num: ???
+    config_name: config
+    env_set: {}
+    env_copy: []
+    config:
+      override_dirname:
+        kv_sep: '='
+        item_sep: ','
+        exclude_keys: []
+  runtime:
+    version: 1.1.1
+    cwd: /home/knierim/BodyGenExtend/BodyGenExtend
+    config_sources:
+    - path: hydra.conf
+      schema: pkg
+      provider: hydra
+    - path: /home/knierim/BodyGenExtend/BodyGenExtend/design_opt/conf
+      schema: file
+      provider: main
+    - path: ''
+      schema: structured
+      provider: schema
+    choices:
+      hydra/env: default
+      hydra/callbacks: null
+      hydra/job_logging: default
+      hydra/hydra_logging: default
+      hydra/hydra_help: default
+      hydra/help: default
+      hydra/sweeper: basic
+      hydra/launcher: basic
+      hydra/output: default
+  verbose: false
+group: BodyGenExtend-debug-pusher-4
+project: BodyGenExtend
+name: pusher
+enable_wandb: true
+cfg: pusher
+render: false
+tmp: false
+num_threads: 20
+gpu_index: 0
+epoch: '0'
+show_noise: false
+'n': 1
+project_path: null
+lr_decay: false
+policy_optimizer: Adam
+policy_lr: 5.0e-05
+policy_momentum: 0.0
+policy_weightdecay: 0.0
+value_optimizer: Adam
+value_lr: 0.0003
+value_momentum: 0.0
+value_weightdecay: 0.0
+reward_shift: 0.0
+clip_epsilon: 0.2
+min_batch_size: 50000
+max_epoch_num: 1000
+mini_batch_size: 2048
+num_optim_epoch: 10
+norm_return: true
+norm_advantage: true
+max_grad_norm: 40
+uni_obs_norm: true
+xml_name: default
+planner_demean: false
+seed: 4
+save_model_interval: 100
+value_specs:
+  htype: tanh
+  mlp:
+  - 512
+  - 256
+  design_flag_in_state: true
+  message_type: transformer
+  transformer_specs:
+    pos_emb_type: index
+    block_depth: 3
+    hidden_dim: 64
+    norm_type: pre
+policy_specs:
+  attr_log_std: -2.3
+  fix_control_std: false
+  fix_attr_std: false
+  skel_message_type: transformer
+  control_message_type: transformer
+  attr_message_type: transformer
+  skel_transformer_specs:
+    pos_emb_type: index
+    block_depth: 3
+    hidden_dim: 64
+    norm_type: pre
+  attr_transformer_specs:
+    pos_emb_type: index
+    block_depth: 3
+    hidden_dim: 64
+    norm_type: pre
+  control_transformer_specs:
+    pos_emb_type: index
+    block_depth: 3
+    hidden_dim: 64
+    norm_type: pre
+  skel_shared_mlp:
+    hdims:
+    - 128
+    - 128
+    rescale_linear: true
+    max_index: 10
+  control_shared_mlp:
+    hdims:
+    - 128
+    - 128
+    rescale_linear: true
+    max_index: 10
+  attr_shared_mlp:
+    hdims:
+    - 128
+    - 128
+    rescale_linear: true
+    max_index: 10
+obs_specs:
+  use_body_depth_height: true
+  use_shortest_distance: true
+  use_position_encoding: true

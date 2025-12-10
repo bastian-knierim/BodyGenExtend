@@ -11,9 +11,10 @@ import os
 
 
 class AntEnv(MujocoEnv, utils.EzPickle):
-    def __init__(self, cfg, agent):
+    def __init__(self, cfg, agent, task):
         self.cur_t = 0
         self.cfg = cfg
+        self.task = task
         self.env_specs = cfg.env_specs
         self.agent = agent
         if self.cfg.xml_name == "default":

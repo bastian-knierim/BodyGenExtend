@@ -1,0 +1,5 @@
+- cfg=pusher
+- n=0
+- seed=4
+- group=Debug-pusher-4
+- name=pusher

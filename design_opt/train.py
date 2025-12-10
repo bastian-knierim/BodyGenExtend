@@ -63,5 +63,6 @@ def main(cfg: DictConfig) -> None:
     if FLAGS.enable_wandb:
         wandb.finish()
     
+    
 if __name__ == '__main__':
     main()

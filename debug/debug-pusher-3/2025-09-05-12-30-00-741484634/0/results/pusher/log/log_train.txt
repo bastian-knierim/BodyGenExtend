@@ -1,0 +1,3 @@
+[2025-09-05 12:50:43,477] 0	T_sample 1039.35	T_update 157.26	T_eval 40.51	ETA 0:00:00	train_R -0.06	train_R_eps -2.87	exec_R -0.00	exec_R_eps -2.94	pusher
+[2025-09-05 12:50:43,480] save best checkpoint with rewards -2.94!
+[2025-09-05 12:50:43,692] training done!

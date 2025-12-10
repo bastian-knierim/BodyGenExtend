@@ -13,4 +13,5 @@ class TrajBatch:
         self.masks = np.stack(next(self.batch))
         self.next_states = np.stack(next(self.batch))
         self.rewards = np.stack(next(self.batch))
+        print(f'rewards in TrajBatch: {self.rewards}')
         self.exps = np.stack(next(self.batch))

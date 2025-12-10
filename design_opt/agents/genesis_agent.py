@@ -7,6 +7,7 @@ from khrylib.utils import *
 from khrylib.utils.torch import *
 from khrylib.rl.agents import AgentPPO
 from torch.utils.tensorboard import SummaryWriter
+from design_opt.tasks import task_dict
 from design_opt.envs import env_dict
 from design_opt.models.bodygen_policy import BodyGenPolicy
 from design_opt.models.bodygen_critic import BodyGenValue
@@ -15,6 +16,9 @@ from design_opt.utils.tools import TrajBatchDisc
 import multiprocessing
 from khrylib.rl.core.running_norm import RunningNorm
 from torch.optim.lr_scheduler import LambdaLR
+import csv
+import json
+
 
 import wandb
 
@@ -34,6 +38,8 @@ class BodyGenAgent(AgentPPO):
         self.loss_iter = 0
         self.setup_env()
         self.env.seed(seed)
+
+        # self.setup_task()
         self.setup_logger()
         self.setup_policy()
         self.setup_value()
@@ -70,7 +76,11 @@ class BodyGenAgent(AgentPPO):
         self.skel_num_action = env.skel_num_action
         self.action_dim = self.control_action_dim + self.attr_design_dim
         self.running_state = None
-        
+
+    def setup_task(self):
+        cfg = self.cfg
+
+
     def setup_logger(self):
         cfg = self.cfg
         self.tb_logger = SummaryWriter(cfg.tb_dir) if self.training else None
@@ -186,7 +196,6 @@ class BodyGenAgent(AgentPPO):
 
                 done = (termination or truncation)
                 exp = 1 - use_mean_action
-                
                 memory.push(state, action, termination, done, next_state, reward, exp)
 
                 if done:
@@ -362,9 +371,9 @@ class BodyGenAgent(AgentPPO):
                     fixed_log_probs.append(fixed_log_probs_i)
                 fixed_log_probs = torch.cat(fixed_log_probs)
         num_state = len(states)
-        
-        state_types = torch.tensor(np.array([item[2] for item in states], dtype=int)) # [0, 1, 2] for ['skel_trans', 'attr_trans', 'execution']
-        next_state_types = torch.tensor(np.array([item[2] for item in next_states], dtype=int))
+
+        state_types = torch.tensor(np.array([item[2] for item in states]), dtype=int) # [0, 1, 2] for ['skel_trans', 'attr_trans', 'execution']
+        next_state_types = torch.tensor(np.array([item[2] for item in next_states]), dtype=int)
         
         advantages, returns = self.estimate_advantages(states, next_states, rewards, next_terminations, next_dones, state_types, next_state_types)
 
@@ -570,24 +579,133 @@ class BodyGenAgent(AgentPPO):
             save_video_ffmpeg(f'{frame_dir}/%04d.png', f'out/videos/{self.cfg.id}.mp4', fps=30)
             shutil.rmtree(frame_dir)
 
-    def visualize_agent_video(self, num_episode=1, mean_action=True, max_num_frames=1000):
+    def eval_data(self, out_csv_path, mean_action=True, duration_sec=30):
 
-        width = 1600
-        height = 900
-        fr = 0
         env = self.env
+
+        warmup_steps = 6
+        state = env.reset()
 
         if self.cfg.uni_obs_norm:
             self.obs_norm.eval()
             self.obs_norm.to('cpu')
 
-        frame_dir = f'out/videos/{self.cfg.id}_frames'
+        for _ in range(warmup_steps):
+            state_var = tensorfy([state])
+            if self.cfg.uni_obs_norm:
+                state_var = self.normalize_observation(state_var)
+
+            with torch.no_grad():
+                action = self.policy_net.select_action(
+                    state_var, mean_action=True
+                ).numpy().astype(np.float64)
+
+            next_state, _, termination, truncation, _ = env.step(action)
+            done = termination or truncation
+            state = env.reset() if done else next_state
+
+
+        model = env.model
+
+        joint_info = []
+        for i in range(model.njnt):
+            name = model.joint_id2name(i)
+            jtype = int(model.jnt_type[i])
+            qpos_start = int(model.jnt_qposadr[i])
+            qvel_start = int(model.jnt_dofadr[i])
+
+            if i < model.njnt - 1:
+                qpos_dim = int(model.jnt_qposadr[i+1]) - qpos_start
+            else:
+                qpos_dim = int(model.nq) - qpos_start
+
+            if i < model.njnt - 1:
+                qvel_dim = int(model.jnt_dofadr[i+1]) - qvel_start
+            else:
+                qvel_dim = int(model.nv) - qvel_start
+
+            joint_info.append({
+                "joint_index": i,
+                "joint_name": name,
+                "joint_type": jtype,
+                "qpos_start": qpos_start,
+                "qpos_dim": qpos_dim,
+                "qvel_start": qvel_start,
+                "qvel_dim": qvel_dim
+            })
+
+        joint_info_path = out_csv_path.replace(".csv", "_joint_info.json")
+        with open(joint_info_path, "w") as jf:
+            json.dump(joint_info, jf, indent=2)
+
+        # timestep und Schrittezahlen jetzt aus *aktuellem* Model
+        timestep = model.opt.timestep
+        max_steps = int(duration_sec / timestep)
+
+        with open(out_csv_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["step","reward","done","sim_time","obs","action","qpos","qvel"])
+
+            sim_time = 0.0
+            for step in range(max_steps):
+                state_var = tensorfy([state])
+                if self.cfg.uni_obs_norm:
+                    state_var = self.normalize_observation(state_var)
+
+                with torch.no_grad():
+                    action = self.policy_net.select_action(
+                        state_var, mean_action
+                    ).numpy().astype(np.float64)
+
+                next_state, reward, termination, truncation, info = env.step(action)
+                done = termination or truncation
+                sim_time += timestep
+
+                qpos = env.data.qpos.copy()
+                qvel = env.data.qvel.copy()
+
+                writer.writerow([
+                    step,
+                    float(reward),
+                    bool(done),
+                    sim_time,
+                    list(state),
+                    action.tolist(),
+                    qpos.tolist(),
+                    qvel.tolist()
+                ])
+                f.flush()
+
+                if done:
+                    break
+                state = next_state
+
+
+
+    def visualize_agent_video(self, video_dir, num_episode=1, mean_action=True, max_num_frames=1200):        
+                
+        width = 1600
+        height = 900
+        fr = 0
+        env = self.env
+        if hasattr(self.env, 'np_random'):
+            print(f'Random State: {self.env.np_random}')
+        timestep = env.model.opt.timestep
+        fps=30
+        #skip_frames = int(0.01 / timestep)
+        skip_frames = 1
+        
+        if self.cfg.uni_obs_norm:
+            self.obs_norm.eval()
+            self.obs_norm.to('cpu')
+
+        frame_dir = f'{video_dir}/frames'
         os.makedirs(frame_dir, exist_ok=True)
 
         for _ in range(num_episode):
             state = env.reset()
 
-            for t in range(1000):
+            for t in range(max_num_frames*skip_frames):
                 state_var = tensorfy([state])
 
                 if self.cfg.uni_obs_norm:
@@ -599,9 +717,11 @@ class BodyGenAgent(AgentPPO):
                 next_state, env_reward, termination, truncation, info = env.step(action)
                 done = (termination or truncation)
 
-                frame = env.render(mode='rgb_array', width=width, height=height)
-                imageio.imwrite(f'{frame_dir}/{fr:04d}.png', frame)
-                fr += 1
+                if t % skip_frames == 0 and t > 0:
+                    # print(f'Time: {(t/30):3.2f}s | Reward: {env_reward} | Goal Rotation: {env.box_rot} | Roation Distance: {env.}')
+                    frame = env.render(mode='rgb_array', width=width, height=height)
+                    imageio.imwrite(f'{frame_dir}/{fr:04d}.png', frame)
+                    fr += 1
                 if fr >= max_num_frames:
                     break
 
@@ -615,6 +735,74 @@ class BodyGenAgent(AgentPPO):
                 break
 
 
-        output_file = f'out/videos/{self.cfg.id}.mp4'
-        save_video_ffmpeg(f'{frame_dir}/%04d.png', output_file, fps=30)
+        output_file = f'{video_dir}/video.mp4'
+        save_video_ffmpeg(f'{frame_dir}/%04d.png', output_file, fps=fps)
         shutil.rmtree(frame_dir)
+        
+    def visualize_agent_frames(self, out_dir, num_episode=1, mean_action=True, max_frames=200):
+        width = 1600
+        height = 900
+        fr = 0
+        env = self.env
+
+        if self.cfg.uni_obs_norm:
+            self.obs_norm.eval()
+            self.obs_norm.to('cpu')
+
+        frame_dir = f'{out_dir}/frames'
+        os.makedirs(frame_dir, exist_ok=True)
+
+        for _ in range(num_episode):
+            state = env.reset()
+
+            while fr < max_frames:
+                state_var = tensorfy([state])
+
+                if self.cfg.uni_obs_norm:
+                    state_var = self.normalize_observation(state_var)
+
+                with torch.no_grad():
+                    action = self.policy_net.select_action(state_var, mean_action).numpy().astype(np.float64)
+
+                next_state, env_reward, termination, truncation, info = env.step(action)
+                done = termination or truncation
+
+                frame = env.render(mode='rgb_array', width=width, height=height)
+                imageio.imwrite(f'{frame_dir}/{fr:04d}.png', frame)
+                fr += 1
+
+                if done:
+                    break
+
+                state = next_state
+
+            if fr >= max_frames:
+                break
+        
+    def debug(self):
+        mean_action = True
+        env = self.env
+        
+        if self.cfg.uni_obs_norm:
+            self.obs_norm.eval()
+            self.obs_norm.to('cpu')
+
+        state = env.reset()
+
+        for t in range(300):
+            state_var = tensorfy([state])
+
+            if self.cfg.uni_obs_norm:
+                state_var = self.normalize_observation(state_var)
+            with torch.no_grad():
+                action = self.policy_net.select_action(state_var, mean_action).numpy().astype(np.float64)
+
+            next_state, env_reward, termination, truncation, info = env.step(action)
+            print(f'Reward: {env_reward}')
+            done = (termination or truncation)
+            if done:
+                print(f'truncation: {truncation}, termination: {termination}')
+                break
+
+            state = next_state
+            # print(f'State: {state}')
