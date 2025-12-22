@@ -739,7 +739,7 @@ class BodyGenAgent(AgentPPO):
         save_video_ffmpeg(f'{frame_dir}/%04d.png', output_file, fps=fps)
         shutil.rmtree(frame_dir)
         
-    def visualize_agent_frames(self, out_dir, num_episode=1, mean_action=True, max_frames=200):
+    def visualize_agent_frames(self, out_dir, num_episode=1, mean_action=True, max_frames=500):
         width = 1600
         height = 900
         fr = 0
@@ -749,7 +749,7 @@ class BodyGenAgent(AgentPPO):
             self.obs_norm.eval()
             self.obs_norm.to('cpu')
 
-        frame_dir = f'{out_dir}/frames'
+        frame_dir = f'{out_dir}/shooting_frames'
         os.makedirs(frame_dir, exist_ok=True)
 
         for _ in range(num_episode):

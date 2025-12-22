@@ -1,5 +1,5 @@
 env_name: ant_box_lift
-xml_name: antbox_light
+xml_name: antbox_wall_light_small
 agent_specs:
   batch_design: true
 # training parameters
@@ -15,9 +15,10 @@ done_condition:
   max_ang: 60
 
 task_specs:
-  box_pos: [2.0, 0.0, 0.7]
-  reward_type: 'zheight'
-  box_cont_cost: true
+  box_pos: [2.0, 0.0, 0.5]
+  box_cont_cost: False
+  wall_pos: [13.0, 0.0, 5.0]
+
 
 obs_specs:
   attr: ['depth']

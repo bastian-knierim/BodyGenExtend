@@ -1,13 +1,13 @@
 <mujoco model="walker-box">
   <asset>
-    <!-- <texture name="skybox" type="skybox" builtin="flat" rgb1="1 1 1" width="800" height="800" />
+    <texture name="skybox" type="skybox" builtin="flat" rgb1="1 1 1" width="800" height="800" />
     <texture name="grid" type="2d" builtin="flat" rgb1="0.8 0.8 0.8" width="300" height="300" mark="edge"/>
     <material name="grid" texture="grid"/>
-    <material name="self" rgba=".7 .5 .3 1"/> -->
-    <texture name="skybox" type="skybox" builtin="gradient" rgb1=".2 .3 .4" rgb2="0 0 0" width="800" height="800" mark="random" markrgb="1 1 1"/>
+    <material name="self" rgba=".7 .5 .3 1"/>
+    <!-- <texture name="skybox" type="skybox" builtin="gradient" rgb1=".2 .3 .4" rgb2="0 0 0" width="800" height="800" mark="random" markrgb="1 1 1"/>
     <texture name="grid" type="2d" builtin="checker" rgb1=".1 .2 .3" rgb2=".2 .3 .4" width="300" height="300" mark="edge" markrgb=".2 .3 .4"/>
     <material name="grid" texture="grid" texrepeat="1 1" texuniform="true" reflectance=".2"/>
-    <material name="self" rgba=".7 .5 .3 1"/>
+    <material name="self" rgba=".7 .5 .3 1"/> -->
   </asset>
   <visual>
     <headlight ambient=".4 .4 .4" diffuse=".8 .8 .8" specular="0.1 0.1 0.1"/>

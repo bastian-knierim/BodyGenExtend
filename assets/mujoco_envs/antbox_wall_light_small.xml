@@ -1,13 +1,13 @@
 <mujoco model="ant-box">
   <asset>
-    <texture name="skybox" type="skybox" builtin="flat" rgb1="1 1 1" width="800" height="800" />
+    <!-- <texture name="skybox" type="skybox" builtin="flat" rgb1="1 1 1" width="800" height="800" />
     <texture name="grid" type="2d" builtin="flat" rgb1="0.8 0.8 0.8" width="300" height="300" mark="edge"/>
     <material name="grid" texture="grid"/>
-    <material name="self" rgba=".7 .5 .3 1"/>
-    <!-- <texture name="skybox" type="skybox" builtin="gradient" rgb1=".2 .3 .4" rgb2="0 0 0" width="800" height="800" mark="random" markrgb="1 1 1"/>
+    <material name="self" rgba=".7 .5 .3 1"/> -->
+    <texture name="skybox" type="skybox" builtin="gradient" rgb1=".2 .3 .4" rgb2="0 0 0" width="800" height="800" mark="random" markrgb="1 1 1"/>
     <texture name="grid" type="2d" builtin="checker" rgb1=".2 .1 .2" rgb2=".3 .2 .3" width="300" height="300" mark="edge" markrgb=".3 .2 .3"/>
     <material name="grid" texture="grid" texrepeat="1 1" texuniform="true" reflectance=".2"/>
-    <material name="self" rgba=".7 .5 .3 1"/> -->
+    <material name="self" rgba=".7 .5 .3 1"/>
   </asset>
   <visual>
     <headlight ambient=".4 .4 .4" diffuse=".8 .8 .8" specular="0.1 0.1 0.1"/>
@@ -44,10 +44,15 @@
         <geom fromto="0 0 0 0.4 -0.4 0" size="0.08" type="capsule"/>
       </body>
     </body>
+    <body name="wall" pos="0 0 0">
+      <freejoint name="wall_joint"/>
+      <geom type="box" size="10 10 5" rgba="0.6 0.3 0.6 1.0"
+            contype="1" conaffinity="1" density="1000" friction="0.6 0.005 0.002"/>
+    </body>
     <body name="box" pos="0 0 0">
       <freejoint name="box_joint"/>
-      <geom type="box" size="0.25 0.25 0.25" rgba="0.2 0.9 0.6 1.0"
-            contype="1" conaffinity="1" density="10" friction="0.6 0.005 0.002"/>
+      <geom type="box" size="0.25 0.25 0.25" rgba="0.2 0.9 0.6 0.6"
+            contype="1" conaffinity="1" density="1" friction="0.6 0.005 0.002"/>
     </body>
   </worldbody>
   <actuator>
@@ -56,4 +61,8 @@
     <motor ctrllimited="true" ctrlrange="-1.0 1.0" joint="3_joint" gear="150" name="3_joint"/>
     <motor ctrllimited="true" ctrlrange="-1.0 1.0" joint="4_joint" gear="150" name="4_joint"/>
   </actuator>
+  <equality>
+  <weld body1="world" body2="wall"
+        relpose="13 0 0 1 0 0 0"/>
+  </equality>
 </mujoco>
