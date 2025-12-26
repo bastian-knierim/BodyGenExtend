@@ -1,87 +1,105 @@
-# Manipulation Tasks in Embodiment Co-Design - BodyGen Extended
+# Manipulation Tasks in Embodiment Co-Design – BodyGen Extended
 
-This work is an extended version of <a href="https://github.com/GenesisOrigin/BodyGen">BodyGen</a>. Modifications were made in the mujoco environments, agent configurations as well as optimization environments. The goal of this work was to extend the existing framework by adding manipulation tasks and comparing ablations. 
+This repository provides an extension of the BodyGen framework by introducing
+manipulation tasks for embodiment co-design. The focus is on task design and
+systematic ablations in MuJoCo environments.
+
+## Contribution
+
+This work extends BodyGen by:
+- adding manipulation tasks,
+- introducing task-specific environment ablations,
+- evaluating embodiment performance across different manipulation settings.
 
 ## Tasks
 
-Four different Tasks were added, each tested with different abblations. The task is defined by the reward function in combination with the environment. And the ablations are about, size and weight of the cube, friction of the floor and additional objects in the environment, like a wall. Also an additional reward term was tested, rewarding the overall movement in all directions.
+Four manipulation tasks were added. Tasks differ in reward functions, environment configuration. Additionaly tasks were executed with different ablations such as cube size, cube mass, floor friction, additional obstacles, and optional reward terms.
 
-### Pushing a Cube
 
-This task was the initial manipulation task, it was used to decide on the environment of further experiments. It is about pushing a cube as far as possible. The reward function is defined as:
-$$     r_{push,t} = \frac{p_{cube,t+1}^x - p_{cube,t}^x}{\Delta t}
-    + \frac{d_{agent,cube,t} - d_{agent,cube,t+1}}{\Delta t} $$
 
-with
-$$    d_{agent,cube,t} = \lVert p_{agent,t} - p_{cube,t} \rVert_2.
-$$
 
-Here three different environments were tested with each ten seeds. The following videos show multiple seeds of each environment.
+## Pushing a Cube
 
-The **Swimmer**:
+Initial manipulation task used to select environments for further experiments.
+Three environments were tested with ten seeds each. All videos represent different strategies found in each environment.
 
-<video controls src="illustrations/Swimmer.mp4" title="Title"></video>
+- **Swimmer**: ▶️ [Video](illustrations/Swimmer.mp4)
 
-The **Walker**:
 
-<video controls src="illustrations/Walker.mp4" title="Title"></video>
 
-The **Crawler**
+https://github.com/user-attachments/assets/a5760f3c-b8a8-4d3c-a28a-5a37e6d05a24
 
-<video controls src="illustrations/Crawler.mp4" title="Title"></video>
 
-### Pushing a Cube towards a goal Position
 
-Adding a goal position for the cube was the next incremental step in complexity, where the reward function was designed as:
-$$    r_{pushgoal,t} =
-    \frac{d_{cube,goal,t} - d_{cube,goal,t+1}}{\Delta t}
-    + \frac{d_{agent,cube,t} - d_{agent,cube,t+1}}{\Delta t} $$
+- **Walker**: ▶️ [Video](illustrations/Walker.mp4)
 
-For this task five seeds per ablation were used and in total two ablations. The video shows on the top no ablation and on the bottom a small cube.
 
-<video controls src="illustrations/CrawlerGoal.mp4" title="Title"></video>
 
-### Flipping a Cube
+https://github.com/user-attachments/assets/8e2b8dce-313b-4201-863e-6fb55663f085
 
-In this task the agent is trained to flip the cube, the reward function is formulated as:
-$$   r_{flip,t} =
-  \frac{\theta_{cube,goal,t} - \theta_{cube,goal,t+1}}{\Delta t}
-  + \frac{d_{agent,cube,t} - d_{agent,cube,t+1}}{\Delta t}$$
-with 
-$$    \theta = 2 \arccos \left( \left| \langle \mathbf{p}, \mathbf{q} \rangle \right| \right) $$
-and in some ablations an additional control reward
 
-$$     r_{cont,t} = ||\mathbf{k}_{cube,t} - \mathbf{k}_{cube,t+1}||_2
-$$
-with $\mathbf{k}_{cube}$ containing the position and orientation as a $7\times1$ vector. 
 
-Because multiple testing phases did not produce successful results, the testing was constrained to one seed and mutliple environmental modifications at once.
-In the following illustration on the
-- top left: a tiny light cube and a higher friction were used.
-- top right: a tilted initial position, a small light cube and an addtional control reward were used.
-- bottom left: a tilted initial position and a tiny cube were used.
-- bottom right: a tilted initial position, a tiny light cube and a higher friction were used.
+- **Crawler**: ▶️ [Video](illustrations/Crawler.mp4)
 
-<video controls src="illustrations/Flip.mp4" title="Title"></video>
+https://github.com/user-attachments/assets/10019e65-758a-4ecc-b197-bbf4e5fcde53
 
-To ensure a valid evaluation further seeding would be needed. 
 
-### Lifting a Cube
+## Pushing a Cube towards a Goal Position
 
-The last task is about lifting a cube, the reward is defined as:
-$$     r_{lift,t} =
-    \frac{p_{cube,t+1}^z - h_{cube}}{\Delta t}
-    + \frac{d_{agent,cube,t} - d_{agent,cube,t+1}}{\Delta t}$$
+Incremental increase in task complexity by adding a goal position.
+Two cube sizes were tested with five seeds each.
 
-Here again multiple ablations were used each with three seeds. In the illustration each video represents one ablation. 
-On the
-- top left: no ablations were used.
-- top right: a light cube was used.
-- bottom left: a small cube was used.
-- bottom right: a small light cube was used.
+- **Crawler (Goal Task)**: ▶️ [Video](illustrations/CrawlerGoal.mp4)
 
-<video controls src="illustrations/Lift.mp4" title="Title"></video>
 
-## Setup / Training
+https://github.com/user-attachments/assets/7253d792-9db6-442f-a78f-4ffecda44724
 
-Because BodyGen was used, the setup and training is similar, only addtional requirements were added, which can be seen in requirements.txt.
+
+## Flipping a Cube
+
+The agent is trained to flip a cube. Due to unstable results, evaluation was
+limited to a single seed with multiple simultaneous environment modifications.
+
+- **Flip task (multiple configurations)**: ▶️ [Video](illustrations/Flip.mp4)
+
+
+https://github.com/user-attachments/assets/0f9902a3-5638-4d89-9430-93101cb32677
+
+
+Further seeding would be required for a statistically valid evaluation.
+
+## Lifting a Cube
+
+The agent is trained to lift a cube vertically.
+Four ablations were tested, each with three seeds.
+
+- **Lift task (all ablations)**: ▶️ [Video](illustrations/Lift.mp4)
+
+
+https://github.com/user-attachments/assets/1d1b5d69-d22c-4d0f-8257-95951e80ca3d
+
+
+## Installation and Training
+
+Installation and training follow the original BodyGen framework.
+Please refer to the official BodyGen repository for setup and usage instructions:
+
+https://github.com/GenesisOrigin/BodyGen
+
+## Reproducibility
+
+All experiments were executed with fixed random seeds.
+The number of seeds varies per task and is stated in the corresponding sections.
+
+## Citation
+
+If you use this repository, please cite this work in addition to the original
+BodyGen paper:
+
+```bibtex
+@misc{bodygen_extended_2025,
+  title  = {Manipulation Tasks in Embodiment Co-Design: BodyGen Extended},
+  author = {Bastian Knierim},
+  year   = {2025},
+  note   = {Extension of the BodyGen framework with manipulation tasks}
+}
