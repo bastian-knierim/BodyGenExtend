@@ -682,7 +682,7 @@ class BodyGenAgent(AgentPPO):
 
 
 
-    def visualize_agent_video(self, video_dir, num_episode=1, mean_action=True, max_num_frames=1200):        
+    def visualize_agent_video(self, video_dir, num_episode=1, mean_action=True, max_num_frames=500):        
                 
         width = 1600
         height = 900

@@ -1,168 +1,87 @@
-# BodyGen: Advancing Towards Efficient Embodiment Co-Design
+# Manipulation Tasks in Embodiment Co-Design - BodyGen Extended
 
-<p align="center">
-·
-<a href="https://openreview.net/pdf?id=cTR17xl89h">Paper</a>
-·
-<a href="https://github.com/GenesisOrigin/BodyGen">Code</a>
-·
-<a href="https://genesisorigin.github.io">Webpage</a>
-·
-<a href="https://huggingface.co/Josh00/BodyGen">Hugging Face</a>
-</p>
+This work is an extended version of <a href="https://github.com/GenesisOrigin/BodyGen">BodyGen</a>. Modifications were made in the mujoco environments, agent configurations as well as optimization environments. The goal of this work was to extend the existing framework by adding manipulation tasks and comparing ablations. 
 
-This repository contains the PyTorch implementation of *"BodyGen: Advancing Towards Efficient Embodiment Co-Design."* (ICLR 2025, Spotlight). Here is our [poster](https://x.com/josh00_lu/status/1911402125818548569).
+## Tasks
 
-<p align="center">
-    <br>
-    <img src="figures/framework.png"/>
-    <br>
-<p>
+Four different Tasks were added, each tested with different abblations. The task is defined by the reward function in combination with the environment. And the ablations are about, size and weight of the cube, friction of the floor and additional objects in the environment, like a wall. Also an additional reward term was tested, rewarding the overall movement in all directions.
 
-## 🛠️ Setup
-Let's start with python 3.9. It's recommend to create a `conda` env:
+### Pushing a Cube
 
-### Create a new conda environment 
-```bash
-conda create -n BodyGen python=3.9 mesalib glew glfw -c conda-forge -y
-conda activate BodyGen
-```
+This task was the initial manipulation task, it was used to decide on the environment of further experiments. It is about pushing a cube as far as possible. The reward function is defined as:
+$$     r_{push,t} = \frac{p_{cube,t+1}^x - p_{cube,t}^x}{\Delta t}
+    + \frac{d_{agent,cube,t} - d_{agent,cube,t+1}}{\Delta t} $$
 
-### Install for MuJoCo Simulator and mujoco-py (Important)
-Install mujoco-py following the instruction [here](https://github.com/openai/mujoco-py#install-mujoco). For MuJoCo, you can use the script below:
+with
+$$    d_{agent,cube,t} = \lVert p_{agent,t} - p_{cube,t} \rVert_2.
+$$
 
-```bash
-#!/bin/bash
-sudo apt-get update && sudo apt-get install -y wget tar libosmesa6-dev libglew-dev libgl1-mesa-glx libglfw3 patchelf cmake
-sudo ln -s /usr/lib/x86_64-linux-gnu/libGL.so.1 /usr/lib/x86_64-linux-gnu/libGL.so
+Here three different environments were tested with each ten seeds. The following videos show multiple seeds of each environment.
 
-# Set up MuJoCo
-USER_DIR=$HOME
-wget -c "https://mujoco.org/download/mujoco210-linux-x86_64.tar.gz"
-mkdir -p $USER_DIR/.mujoco
-cp mujoco210-linux-x86_64.tar.gz $USER_DIR/mujoco.tar.gz
-rm mujoco210-linux-x86_64.tar.gz
-tar -zxvf $USER_DIR/mujoco.tar.gz -C $USER_DIR/.mujoco
+The **Swimmer**:
 
-# Update environment variables
-echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$USER_DIR/.mujoco/mujoco210/bin" >> ~/.bashrc
-echo "export MUJOCO_PY_MUJOCO_PATH=$USER_DIR/.mujoco/mujoco210" >> ~/.bashrc
-source ~/.bashrc
-```
+<video controls src="illustrations/Swimmer.mp4" title="Title"></video>
 
-Set the following environment variable to avoid problems with multiprocess trajectory sampling:
-```bash
-export OMP_NUM_THREADS=1
-```
+The **Walker**:
 
-(Optional) For MacOS user, you can follow the `README_FOR_MAC.md` to install MuJoCo on M1/M2/M3 Mac, which is helpful for embodied agents visualization.
+<video controls src="illustrations/Walker.mp4" title="Title"></video>
 
-### Install dependencies
-```bash
-pip install -r requirements.txt
-```
+The **Crawler**
 
-Note you may have to follow https://pytorch.org/ setup instructions for installation on your own machine.
+<video controls src="illustrations/Crawler.mp4" title="Title"></video>
 
-## 👀 Visualization
+### Pushing a Cube towards a goal Position
 
-<p align="center">
-    <br>
-    <img src="figures/visualization.png"/>
-    <br>
-<p>
+Adding a goal position for the cube was the next incremental step in complexity, where the reward function was designed as:
+$$    r_{pushgoal,t} =
+    \frac{d_{cube,goal,t} - d_{cube,goal,t+1}}{\Delta t}
+    + \frac{d_{agent,cube,t} - d_{agent,cube,t+1}}{\Delta t} $$
 
-Please refer to this [website](https://genesisorigin.github.io) for more visualization results. If you want to visualize the pretrained models, please refer to the following section.
+For this task five seeds per ablation were used and in total two ablations. The video shows on the top no ablation and on the bottom a small cube.
 
-### (Optional) Pretrained Models for Playing
-We also provide pretrained models in `BodyGen/pretrained_models` for visualization. 
+<video controls src="illustrations/CrawlerGoal.mp4" title="Title"></video>
 
-* You can download pretrained models from [Google Drive](https://drive.google.com/file/d/1TYRl8FI8TWEkXr1wYGOsW0au--GUBnce/view?usp=sharing)
+### Flipping a Cube
 
-* Once the `pretrained_models.zip` file is downloaded, unzip it under the folder `BodyGen` of this repo:
-```bash
-unzip pretrained_models.zip
-```
+In this task the agent is trained to flip the cube, the reward function is formulated as:
+$$   r_{flip,t} =
+  \frac{\theta_{cube,goal,t} - \theta_{cube,goal,t+1}}{\Delta t}
+  + \frac{d_{agent,cube,t} - d_{agent,cube,t+1}}{\Delta t}$$
+with 
+$$    \theta = 2 \arccos \left( \left| \langle \mathbf{p}, \mathbf{q} \rangle \right| \right) $$
+and in some ablations an additional control reward
 
-After you unzip the file, an example directory hierarchy is:
-```bash
-assets/
-design_opt/
-...
-pretrained_models/
-  |-- cheetah/
-  |-- crawler/
-  |-- ...
-  |-- walker-regular/
-...
-scripts/
-```
-Our pretrained models are also available on [Hugging Face](https://huggingface.co/Josh00/BodyGen). You can download the pretrained models, and place the `pretrained_models` folder under the root directory (./BodyGen) of this repo.
+$$     r_{cont,t} = ||\mathbf{k}_{cube,t} - \mathbf{k}_{cube,t+1}||_2
+$$
+with $\mathbf{k}_{cube}$ containing the position and orientation as a $7\times1$ vector. 
 
-### Interactive Visualization Locally
+Because multiple testing phases did not produce successful results, the testing was constrained to one seed and mutliple environmental modifications at once.
+In the following illustration on the
+- top left: a tiny light cube and a higher friction were used.
+- top right: a tilted initial position, a small light cube and an addtional control reward were used.
+- bottom left: a tilted initial position and a tiny cube were used.
+- bottom right: a tilted initial position, a tiny light cube and a higher friction were used.
 
-If you have a GUI display, you can run the following command to visualize the pretrained model:
-```bash
-python design_opt/eval.py --train_dir <path_of_model_folder>
-```
+<video controls src="illustrations/Flip.mp4" title="Title"></video>
 
-For example, you can use `pretrained_models` to visualize the co-design embodied agent on `cheetah` generated by BodyGen:
-```bash
-python design_opt/eval.py --train_dir /Path/to/BodyGen/pretrained_models/cheetah
-```
+To ensure a valid evaluation further seeding would be needed. 
 
-For linux users, if you meet the error `ERROR: GLEW initalization error: Missing GL version`, you can try the following command:
-```bash
-sudo apt-get install -y libglew-dev
-export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so
-```
+### Lifting a Cube
 
-Press `S` to slow the agent, and `F` to speed up. 
+The last task is about lifting a cube, the reward is defined as:
+$$     r_{lift,t} =
+    \frac{p_{cube,t+1}^z - h_{cube}}{\Delta t}
+    + \frac{d_{agent,cube,t} - d_{agent,cube,t+1}}{\Delta t}$$
 
-## 💻 Training
-```bash
-cd BodyGen
-chmod 777 scripts/Run_BodyGen.sh
-./scripts/Run_BodyGen.sh
-```
-Use the scripts `scripts/Run_BodyGen.sh`, which contain preconfigured arguments and hyperparameters for **all** the experiments in the paper.  Experiments use Hydra to manage configuration.
+Here again multiple ablations were used each with three seeds. In the illustration each video represents one ablation. 
+On the
+- top left: no ablations were used.
+- top right: a light cube was used.
+- bottom left: a small cube was used.
+- bottom right: a small light cube was used.
 
-Visualizing results requires `wandb`: configure project name with the `project` key in `BodyGen/design_opt/conf/config.yaml`.
+<video controls src="illustrations/Lift.mp4" title="Title"></video>
 
-As an example of how to run, this runs BodyGen on the `crawler` environment:
+## Setup / Training
 
-```bash
-EXPT="crawler"
-OMP_NUM_THREADS=1 python -m design_opt.train -m cfg=$EXPT group=$EXPT
-```
-
-Replace `crawler` with {`crawler`, `terraincrosser`, `cheetah`, `swimmer`, `glider-regular`, `glider-medium`, `glider-hard`, `walker-regular`, `walker-medium`, `walker-hard`} to train other environments.
-
-- `OMP_NUM_THREADS=1` is essential to prevent CPU ops from hanging.
-
-- The environment is selected with the `cfg=` flag, each of which corresponds to a YAML file in `BodyGen/design_opt/cfg`. See that folder
-for the list of available experiments.
-
-- Other hyperparameters are explained in `BodyGen/design_opt/conf/config.yaml` and our paper.
-
-## 🙏 Acknowledgement
-* Our initial code is based on [Transform2Act](https://github.com/Khrylx/Transform2Act). Thanks for their great work and the discussions with the authors.
-* We also refer to [Neural Graph Evolution (NGE)](https://github.com/WilsonWangTHU/neural_graph_evolution) and [One-Policy-to-Control-Them-All](https://github.com/huangwl18/modular-rl) during our implementation. Thanks for their interesting work.
-* The initial designs are based on [Transformer2Act](https://github.com/Khrylx/Transform2Act), [OpenAI Gym](https://github.com/openai/gym), and [DeepMind dm_control](https://github.com/google-deepmind/dm_control). All the algorithms are evaluated with the same sets of initial designs.
-* The backend engine is based on the [MuJoCo](https://github.com/google-deepmind/mujoco), and we are planning to bump to the latest version of official MuJoCo bindings (>3.0.1) in the future.
-
-## 📚 Citation
-If you find our work useful in your research, please consider citing:
-```bibtex
-@inproceedings{
-  lu2025bodygen,
-  title={BodyGen: Advancing Towards Efficient Embodiment Co-Design},
-  author={Haofei Lu and Zhe Wu and Junliang Xing and Jianshu Li and Ruoyu Li and Zhe Li and Yuanchun Shi},
-  booktitle={The Thirteenth International Conference on Learning Representations},
-  year={2025},
-  url={https://openreview.net/forum?id=cTR17xl89h}
-}
-```
-
-## 🏷️ License
-Please see the [license](LICENSE) for further details.
+Because BodyGen was used, the setup and training is similar, only addtional requirements were added, which can be seen in requirements.txt.
